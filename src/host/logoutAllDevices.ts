@@ -1,18 +1,26 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { db } from "../utils/admin";
+import {
+  SessionVerificationError,
+  verifySessionFromHeaders,
+} from "./sessionVerifier";
 
 export const logoutAllDevices = onRequest(
   { region: "asia-south1" },
   async (req, res) => {
     try {
-      const { uid } = req.body || {};
-
-      if (!uid) {
-        res.status(400).json({ error: "MISSING_UID" });
-        return;
+      let session;
+      try {
+        session = await verifySessionFromHeaders(req.headers);
+      } catch (err) {
+        if (err instanceof SessionVerificationError) {
+          res.status(err.status).json({ error: err.message });
+          return;
+        }
+        throw err;
       }
 
-      const col = db.collection("users").doc(uid).collection("hostSessions");
+      const col = db.collection("users").doc(session.uid).collection("hostSessions");
       const snap = await col.get();
 
       const batch = db.batch();

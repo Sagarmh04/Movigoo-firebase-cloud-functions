@@ -10,13 +10,23 @@ export const registerHost = onRequest(
         return;
       }
 
-      const { uid, name, phone } = req.body || {};
+      const { idToken, name, phone } = req.body || {};
 
-      if (!uid || !name) {
+      if (!idToken || !name) {
         res.status(400).json({ error: "MISSING_FIELDS" });
         return;
       }
 
+      let decoded;
+      try {
+        decoded = await auth.verifyIdToken(idToken);
+      } catch (err) {
+        console.error("registerHost verifyIdToken error:", err);
+        res.status(401).json({ error: "INVALID_ID_TOKEN" });
+        return;
+      }
+
+      const uid = decoded.uid;
       const userRef = db.collection("users").doc(uid);
       const userSnap = await userRef.get();
 

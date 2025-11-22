@@ -27,6 +27,7 @@ export const registerHost = onRequest(
       }
 
       const uid = decoded.uid;
+      const email = decoded.email || null;
       const userRef = db.collection("users").doc(uid);
       const userSnap = await userRef.get();
 
@@ -51,6 +52,7 @@ export const registerHost = onRequest(
         if (!data.profile) {
           updateData.profile = {
             name,
+            email,
             phone: phone ?? null,
             kycStatus: "none",
             kycSubmittedAt: null,
@@ -62,25 +64,29 @@ export const registerHost = onRequest(
         res.json({ 
           success: true, 
           updated: true,
-          kycStatus: data.profile?.kycStatus || "none"
+          kycStatus: data.profile?.kycStatus || "none",
+          profile: data.profile || updateData.profile
         });
         return;
       }
 
       // Create brand-new host account with profile structure
+      const newProfile = {
+        name,
+        email,
+        phone: phone ?? null,
+        kycStatus: "none",
+        kycSubmittedAt: null,
+      };
+
       await userRef.set({
         isHost: true,
         isCustomer: false,
         createdAt: Date.now(),
-        profile: {
-          name,
-          phone: phone ?? null,
-          kycStatus: "none",
-          kycSubmittedAt: null,
-        },
+        profile: newProfile,
       });
 
-      res.json({ success: true, created: true, kycStatus: "none" });
+      res.json({ success: true, created: true, kycStatus: "none", profile: newProfile });
     } catch (err) {
       console.error("registerHost error:", err);
       res.status(500).json({ error: "INTERNAL_ERROR" });

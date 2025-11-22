@@ -6,3 +6,4 @@ export * from "./host/listHostSessions";
 export * from "./host/registerHost";
 export * from "./host/submitKyc";
 export * from "./host/getKycStatus";
+export * from "./host/updateProfile";

@@ -10,11 +10,32 @@ export const submitKyc = onRequest(
         return;
       }
 
-      const { idToken, documentType, documentNumber, documentUrl, fullName, address } = req.body || {};
+      const { idToken, name, email, phone, documents } = req.body || {};
 
-      if (!idToken || !documentType || !documentNumber || !documentUrl || !fullName) {
+      // Validate required fields
+      if (!idToken || !name || !documents || !Array.isArray(documents) || documents.length === 0) {
         res.status(400).json({ error: "MISSING_FIELDS" });
         return;
+      }
+
+      // Validate documents array (max 3)
+      if (documents.length > 3) {
+        res.status(400).json({ error: "TOO_MANY_DOCUMENTS", message: "Maximum 3 documents allowed" });
+        return;
+      }
+
+      // Validate each document has required fields
+      for (const doc of documents) {
+        if (!doc.type || !doc.url) {
+          res.status(400).json({ error: "INVALID_DOCUMENT", message: "Each document must have type and url" });
+          return;
+        }
+        // Validate document type
+        const validTypes = ["aadhar", "voter_id", "driving_license", "passport", "other"];
+        if (!validTypes.includes(doc.type)) {
+          res.status(400).json({ error: "INVALID_DOCUMENT_TYPE", message: "Invalid document type" });
+          return;
+        }
       }
 
       // Verify Firebase ID Token
@@ -55,16 +76,28 @@ export const submitKyc = onRequest(
         }
       }
 
+      // Update user profile with submitted data
+      await db.collection("users").doc(uid).update({
+        "profile.name": name,
+        "profile.email": email || null,
+        "profile.phone": phone || null,
+        "profile.kycStatus": "pending",
+        "profile.kycSubmittedAt": Date.now(),
+      });
+
       // Create/Update KYC document
       const kycData = {
         userId: uid,
         userRef: db.collection("users").doc(uid),
-        fullName,
-        documentType, // "aadhar", "voter_id", "driving_license", "passport"
-        documentNumber,
-        documentUrl,
-        address: address || null,
-        status: "pending", // "pending", "verified", "rejected"
+        name,
+        email: email || null,
+        phone: phone || null,
+        documents: documents.map((doc: any) => ({
+          type: doc.type,
+          url: doc.url,
+          uploadedAt: Date.now(),
+        })),
+        status: "pending", // "none", "pending", "verified"
         submittedAt: Date.now(),
         updatedAt: Date.now(),
         verifiedAt: null,
@@ -73,12 +106,6 @@ export const submitKyc = onRequest(
       };
 
       await db.collection("kyc").doc(uid).set(kycData, { merge: true });
-
-      // Update user profile with KYC status
-      await db.collection("users").doc(uid).update({
-        "profile.kycStatus": "pending",
-        "profile.kycSubmittedAt": Date.now(),
-      });
 
       console.log(`KYC submitted for user ${uid}`);
       res.json({ 

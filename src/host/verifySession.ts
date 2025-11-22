@@ -6,10 +6,20 @@ export const verifySession = onRequest(
   { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
-      // Support both header-based and body-based verification
-      const sessionId = req.headers["x-session-id"] || req.query.sessionId || req.body?.sessionId;
-      const sessionKey = req.headers["x-session-key"] || req.query.sessionKey || req.body?.sessionKey;
-      const idToken = req.body?.idToken;
+      // Parse body first for POST requests
+      let bodyData: any = {};
+      if (req.method === "POST") {
+        try {
+          bodyData = req.body || {};
+        } catch (e) {
+          console.warn("Failed to parse body:", e);
+        }
+      }
+
+      // Support multiple input methods (body takes priority)
+      const sessionId = bodyData.sessionId || req.query.sessionId || req.headers["x-session-id"];
+      const sessionKey = bodyData.sessionKey || req.query.sessionKey || req.headers["x-session-key"];
+      const idToken = bodyData.idToken;
 
       // If idToken provided, use token-based verification (more secure)
       if (idToken) {
@@ -39,9 +49,10 @@ export const verifySession = onRequest(
         }
       }
 
-      // Fallback to session key verification (for middleware/legacy)
+      // Fallback to session key verification (for middleware)
       if (!sessionId || !sessionKey) {
-        res.status(401).json({ error: "UNAUTHORIZED" });
+        console.warn("Missing sessionId or sessionKey");
+        res.status(401).json({ error: "UNAUTHORIZED", message: "Missing session credentials" });
         return;
       }
 

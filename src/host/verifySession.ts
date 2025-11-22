@@ -3,7 +3,7 @@ import { db } from "../utils/admin";
 import crypto from "crypto";
 
 export const verifySession = onRequest(
-  { region: "asia-south1" },
+  { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
       const sessionId = req.headers["x-session-id"] || req.query.sessionId;

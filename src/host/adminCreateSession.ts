@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 
 export const adminCreateSession = onRequest(
-  { region: "asia-south1" },
+  { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
       if (req.method !== "POST") {

@@ -2,7 +2,7 @@ import { onRequest } from "firebase-functions/v2/https";
 import { auth, db } from "../utils/admin";
 
 export const registerHost = onRequest(
-  { region: "asia-south1" },
+  { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
       if (req.method !== "POST") {

@@ -6,7 +6,7 @@ import {
 } from "./sessionVerifier";
 
 export const listHostSessions = onRequest(
-  { region: "asia-south1" },
+  { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
       let session;

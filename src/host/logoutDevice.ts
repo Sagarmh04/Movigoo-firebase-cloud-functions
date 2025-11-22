@@ -1,48 +1,49 @@
 import { onRequest } from "firebase-functions/v2/https";
-import { db } from "../utils/admin";
-import {
-  SessionVerificationError,
-  verifySessionFromHeaders,
-} from "./sessionVerifier";
+import { auth, db } from "../utils/admin";
 
 export const logoutDevice = onRequest(
-  { region: "asia-south1" },
+  { region: "asia-south1", cors: true },
   async (req, res) => {
     try {
-      const { sessionId } = req.body || {};
+      if (req.method !== "POST") {
+        res.status(405).json({ error: "METHOD_NOT_ALLOWED" });
+        return;
+      }
 
-      if (!sessionId) {
+      const { idToken, sessionId } = req.body || {};
+
+      if (!sessionId || !idToken) {
+        console.warn("Missing fields for logout");
         res.status(400).json({ error: "MISSING_FIELDS" });
         return;
       }
 
-      let session;
+      // Verify the Firebase ID Token to extract the UID
+      let decoded;
       try {
-        session = await verifySessionFromHeaders(req.headers);
-      } catch (err) {
-        if (err instanceof SessionVerificationError) {
-          res.status(err.status).json({ error: err.message });
-          return;
-        }
-        throw err;
-      }
-
-      if (session.sessionId !== sessionId) {
-        res.status(403).json({ error: "SESSION_MISMATCH" });
+        decoded = await auth.verifyIdToken(idToken);
+      } catch (tokenErr) {
+        console.warn("Invalid ID Token on logout:", tokenErr);
+        res.status(401).json({ error: "INVALID_TOKEN" });
         return;
       }
 
-      await db
+      const uid = decoded.uid;
+
+      // Direct path to the session document
+      const sessionRef = db
         .collection("users")
-        .doc(session.uid)
+        .doc(uid)
         .collection("hostSessions")
-        .doc(sessionId)
-        .delete();
+        .doc(sessionId);
+
+      console.log(`Deleting session ${sessionId} for user ${uid}`);
+      await sessionRef.delete();
 
       res.json({ success: true });
     } catch (err) {
       console.error("logoutDevice error:", err);
-      res.status(500).json({ error: "INTERNAL_ERROR" });
+      res.status(500).json({ error: "INTERNAL_ERROR", details: String(err) });
     }
   }
 );

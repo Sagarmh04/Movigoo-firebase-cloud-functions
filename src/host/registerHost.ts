@@ -41,28 +41,46 @@ export const registerHost = onRequest(
           return;
         }
 
-        // Upgrade existing account to host
-        await userRef.update({
-          name,
-          phone: phone ?? null,
+        // Update only if profile doesn't exist or is incomplete
+        const updateData: any = {
           isHost: true,
           isCustomer: false,
-        });
+        };
 
-        res.json({ success: true, updated: true });
+        // Only update profile if it doesn't exist
+        if (!data.profile) {
+          updateData.profile = {
+            name,
+            phone: phone ?? null,
+            kycStatus: "none",
+            kycSubmittedAt: null,
+          };
+        }
+
+        await userRef.update(updateData);
+
+        res.json({ 
+          success: true, 
+          updated: true,
+          kycStatus: data.profile?.kycStatus || "none"
+        });
         return;
       }
 
-      // Create brand-new host account
+      // Create brand-new host account with profile structure
       await userRef.set({
-        name,
-        phone: phone ?? null,
         isHost: true,
         isCustomer: false,
         createdAt: Date.now(),
+        profile: {
+          name,
+          phone: phone ?? null,
+          kycStatus: "none",
+          kycSubmittedAt: null,
+        },
       });
 
-      res.json({ success: true, created: true });
+      res.json({ success: true, created: true, kycStatus: "none" });
     } catch (err) {
       console.error("registerHost error:", err);
       res.status(500).json({ error: "INTERNAL_ERROR" });
